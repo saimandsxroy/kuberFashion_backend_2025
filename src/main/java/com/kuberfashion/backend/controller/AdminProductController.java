@@ -6,6 +6,15 @@ import com.kuberfashion.backend.entity.Product;
 import com.kuberfashion.backend.entity.Category;
 import com.kuberfashion.backend.service.ProductService;
 import com.kuberfashion.backend.service.CategoryService;
+import com.kuberfashion.backend.dto.AiGenerationRequestDto;
+import com.kuberfashion.backend.dto.AiGenerationResponseDto;
+import com.kuberfashion.backend.dto.ProductVariantConfigDto;
+import com.kuberfashion.backend.dto.ProductVariantDto;
+import com.kuberfashion.backend.dto.TrackingModeUpdateDto;
+import com.kuberfashion.backend.exception.AiServiceException;
+import com.kuberfashion.backend.exception.ResourceNotFoundException;
+import com.kuberfashion.backend.service.ai.AiProductContentService;
+import com.kuberfashion.backend.service.ProductVariantService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -28,6 +37,28 @@ public class AdminProductController {
 
     @Autowired
     private CategoryService categoryService;
+
+    @Autowired
+    private AiProductContentService aiProductContentService;
+
+    @Autowired
+    private ProductVariantService productVariantService;
+
+    @PostMapping("/ai-generate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<AiGenerationResponseDto>> generateAiContent(
+            @Valid @RequestBody AiGenerationRequestDto request) {
+        try {
+            AiGenerationResponseDto response = aiProductContentService.generateContent(request);
+            return ResponseEntity.ok(ApiResponse.success("AI content generated successfully", response));
+        } catch (AiServiceException e) {
+            return ResponseEntity.status(e.getHttpStatus())
+                    .body(ApiResponse.error("AI Generation error: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to generate AI content: " + e.getMessage()));
+        }
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -190,6 +221,77 @@ public class AdminProductController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to update stock: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/variants")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ProductVariantDto>>> getVariants(@PathVariable Long id) {
+        try {
+            List<ProductVariantDto> variants = productVariantService.getVariantsByProductId(id);
+            return ResponseEntity.ok(ApiResponse.success("Variants retrieved successfully", variants));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to retrieve variants: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/variants")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ProductVariantDto>>> configureVariants(
+            @PathVariable Long id,
+            @Valid @RequestBody List<ProductVariantConfigDto> variantConfigs) {
+        try {
+            List<ProductVariantDto> saved = productVariantService.configureVariants(id, variantConfigs);
+            return ResponseEntity.ok(ApiResponse.success("Variants configured successfully", saved));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to configure variants: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/variants/{variantId}/stock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProductVariantDto>> updateVariantStock(
+            @PathVariable Long id,
+            @PathVariable Long variantId,
+            @RequestBody Map<String, Integer> stockUpdate) {
+        try {
+            Integer newStock = stockUpdate.get("stockQuantity");
+            if (newStock == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("stockQuantity is required"));
+            }
+            ProductVariantDto updated = productVariantService.updateVariantStock(id, variantId, newStock);
+            return ResponseEntity.ok(ApiResponse.success("Variant stock updated successfully", updated));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update variant stock: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/tracking-mode")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> updateTrackingMode(
+            @PathVariable Long id,
+            @Valid @RequestBody TrackingModeUpdateDto request) {
+        try {
+            Product.InventoryTrackingMode mode = productVariantService.updateTrackingMode(id, request.getTrackingMode());
+            return ResponseEntity.ok(ApiResponse.success("Inventory tracking mode updated successfully to " + mode));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to update tracking mode: " + e.getMessage()));
         }
     }
 

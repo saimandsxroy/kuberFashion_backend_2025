@@ -1,6 +1,7 @@
 package com.kuberfashion.backend.dto;
 
 import com.kuberfashion.backend.entity.Product;
+import com.kuberfashion.backend.entity.ProductVariant;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +28,8 @@ public class ProductResponseDto {
     private boolean featured;
     private boolean isOffer;
     private Integer stockQuantity;
+    private String inventoryTrackingMode;
+    private List<ProductVariantDto> variants;
     private LocalDateTime createdAt;
 
     // Constructors
@@ -64,7 +67,27 @@ public class ProductResponseDto {
         this.inStock = product.isInStock();
         this.featured = product.isFeatured();
         this.isOffer = product.isOffer();
-        this.stockQuantity = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+        this.inventoryTrackingMode = product.getInventoryTrackingMode() != null
+                ? product.getInventoryTrackingMode().name()
+                : "LEGACY";
+        if (product.getVariants() != null && !product.getVariants().isEmpty()) {
+            this.variants = product.getVariants().stream()
+                    .map(ProductVariantDto::new)
+                    .toList();
+            if (product.isVariantTracking()) {
+                // For variant tracking products, aggregate stock is sum of variant stocks
+                this.stockQuantity = product.getVariants().stream()
+                        .filter(ProductVariant::isActive)
+                        .mapToInt(ProductVariant::getStockQuantity)
+                        .sum();
+                this.inStock = this.stockQuantity > 0;
+            } else {
+                this.stockQuantity = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+            }
+        } else {
+            this.variants = java.util.Collections.emptyList();
+            this.stockQuantity = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+        }
         this.createdAt = product.getCreatedAt();
     }
 
@@ -227,5 +250,21 @@ public class ProductResponseDto {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getInventoryTrackingMode() {
+        return inventoryTrackingMode;
+    }
+
+    public void setInventoryTrackingMode(String inventoryTrackingMode) {
+        this.inventoryTrackingMode = inventoryTrackingMode;
+    }
+
+    public List<ProductVariantDto> getVariants() {
+        return variants;
+    }
+
+    public void setVariants(List<ProductVariantDto> variants) {
+        this.variants = variants;
     }
 }

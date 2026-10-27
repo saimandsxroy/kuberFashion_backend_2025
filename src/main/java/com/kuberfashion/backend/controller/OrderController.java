@@ -57,8 +57,36 @@ public class OrderController {
                     request.getAddressId(),
                     Order.PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase()),
                     request.getReferralCode(),
-                    purchaseMode);
+                    purchaseMode,
+                    request.getIdempotencyKey());
             return ResponseEntity.ok(ApiResponse.success("Order created successfully", order));
+        } catch (com.kuberfashion.backend.exception.IdempotencyConflictException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (com.kuberfashion.backend.exception.InsufficientStockException |
+                 com.kuberfashion.backend.exception.ResourceNotFoundException |
+                 IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().trim().isEmpty()) {
+                Order existing = orderService.getOrderByIdempotencyKeyAndUserId(request.getIdempotencyKey().trim(), user.getId())
+                        .orElse(null);
+                if (existing != null) {
+                    try {
+                        orderService.validateIdempotentPayload(
+                                existing,
+                                request.getCartItems(),
+                                Order.PaymentMethod.valueOf(request.getPaymentMethod().toUpperCase()));
+                        return ResponseEntity.ok(ApiResponse.success("Order created successfully", existing));
+                    } catch (com.kuberfashion.backend.exception.IdempotencyConflictException conflictEx) {
+                        return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                                .body(ApiResponse.error(conflictEx.getMessage()));
+                    }
+                }
+            }
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                    .body(ApiResponse.error("Order creation conflict: duplicate request"));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError()
@@ -139,6 +167,18 @@ public class OrderController {
         private String paymentMethod; // PHONEPE or CASH_ON_DELIVERY
         private String referralCode; // For KVision membership
 
+        public CreateOrderRequest() {}
+
+        public CreateOrderRequest(List<CartItemDto> cartItems, Long addressId, String paymentMethod,
+                                  String referralCode, String purchaseMode, String idempotencyKey) {
+            this.cartItems = cartItems;
+            this.addressId = addressId;
+            this.paymentMethod = paymentMethod;
+            this.referralCode = referralCode;
+            this.purchaseMode = purchaseMode;
+            this.idempotencyKey = idempotencyKey;
+        }
+
         // Getters and setters
         public List<CartItemDto> getCartItems() {
             return cartItems;
@@ -173,6 +213,7 @@ public class OrderController {
         }
 
         private String purchaseMode; // ONLINE or OFFLINE for KVision products
+        private String idempotencyKey;
 
         public String getPurchaseMode() {
             return purchaseMode;
@@ -180,6 +221,14 @@ public class OrderController {
 
         public void setPurchaseMode(String purchaseMode) {
             this.purchaseMode = purchaseMode;
+        }
+
+        public String getIdempotencyKey() {
+            return idempotencyKey;
+        }
+
+        public void setIdempotencyKey(String idempotencyKey) {
+            this.idempotencyKey = idempotencyKey;
         }
     }
 }

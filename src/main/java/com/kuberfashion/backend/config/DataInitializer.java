@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Initializes essential data for the application.
@@ -42,7 +43,7 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @Autowired
+    @Autowired(required = false)
     private org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
 
     @Value("${spring.profiles.active:dev}")
@@ -76,10 +77,10 @@ public class DataInitializer implements CommandLineRunner {
             // CRITICAL: Create admin user FIRST before anything else
             initializeAdminUser();
 
-            // Create test user only in development - DISABLED for clean referral testing
-            // if ("dev".equals(activeProfile)) {
-            // initializeTestUser();
-            // }
+            // Create test user in development
+            if ("dev".equals(activeProfile)) {
+                initializeTestUser();
+            }
 
             // Initialize categories (essential for the application)
             initializeCategories();
@@ -103,7 +104,21 @@ public class DataInitializer implements CommandLineRunner {
 
     private void initializeTestUser() {
         try {
-            if (!userRepository.existsByEmail("test@kuberfashion.com")) {
+            Optional<User> byPhone = userRepository.findByPhone("9876543210");
+            Optional<User> byEmail = userRepository.findByEmail("test@kuberfashion.com");
+            if (byPhone.isPresent()) {
+                User user = byPhone.get();
+                user.setPassword(passwordEncoder.encode("test123"));
+                user.setEnabled(true);
+                userRepository.save(user);
+                logger.info("ℹ️ Test user updated with test123 password: phone: {}", user.getPhone());
+            } else if (byEmail.isPresent()) {
+                User user = byEmail.get();
+                user.setPassword(passwordEncoder.encode("test123"));
+                user.setEnabled(true);
+                userRepository.save(user);
+                logger.info("ℹ️ Test user updated with test123 password: email: {}", user.getEmail());
+            } else {
                 User testUser = new User();
                 testUser.setFirstName("Test");
                 testUser.setLastName("User");
@@ -115,11 +130,9 @@ public class DataInitializer implements CommandLineRunner {
 
                 userRepository.save(testUser);
                 logger.info("✅ Test user created: test@kuberfashion.com / test123");
-            } else {
-                logger.info("ℹ️  Test user already exists");
             }
         } catch (Exception e) {
-            logger.error("❌ Failed to create test user: {}", e.getMessage());
+            logger.error("❌ Failed to initialize test user: {}", e.getMessage());
             throw e;
         }
     }
@@ -127,7 +140,14 @@ public class DataInitializer implements CommandLineRunner {
     private void initializeAdminUser() {
         try {
             // Check if admin exists with the new email OR phone already in use
-            if (!userRepository.existsByEmail("admin@kuberfashion.in") && !userRepository.existsByPhone("1234567890")) {
+            Optional<User> oldAdmin = userRepository.findByEmail("admin@kuberfashion.com");
+            if (oldAdmin.isPresent()) {
+                User admin = oldAdmin.get();
+                admin.setEmail("admin@kuberfashion.in");
+                admin.setPassword(passwordEncoder.encode("kuberfashion2025@"));
+                userRepository.save(admin);
+                logger.info("✅ Admin user migrated to admin@kuberfashion.in / kuberfashion2025@");
+            } else if (!userRepository.existsByEmail("admin@kuberfashion.in") && !userRepository.existsByPhone("1234567890")) {
                 User admin = new User();
                 admin.setFirstName("Admin");
                 admin.setLastName("KuberFashion");

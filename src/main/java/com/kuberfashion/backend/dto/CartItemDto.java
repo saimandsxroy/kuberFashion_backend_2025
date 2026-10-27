@@ -31,6 +31,13 @@ public class CartItemDto {
         this.productId = productId;
         this.quantity = quantity;
     }
+
+    public CartItemDto(Long productId, Integer quantity, String selectedSize, String selectedColor) {
+        this.productId = productId;
+        this.quantity = quantity;
+        this.selectedSize = selectedSize;
+        this.selectedColor = selectedColor;
+    }
     
     // Getters and Setters
     public Long getProductId() { return productId; }

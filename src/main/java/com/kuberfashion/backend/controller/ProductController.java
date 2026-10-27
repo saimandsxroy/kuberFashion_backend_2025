@@ -1,12 +1,17 @@
 package com.kuberfashion.backend.controller;
 
+import com.kuberfashion.backend.dto.AiSearchRequestDto;
+import com.kuberfashion.backend.dto.AiSearchResponseDto;
 import com.kuberfashion.backend.dto.ApiResponse;
 import com.kuberfashion.backend.dto.ProductResponseDto;
 import com.kuberfashion.backend.service.ProductService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +28,30 @@ public class ProductController {
 
     @Autowired
     private ProductService productService;
+
+    @PostMapping("/smart-search")
+    public ResponseEntity<ApiResponse<AiSearchResponseDto>> smartSearch(
+            @Valid @RequestBody AiSearchRequestDto request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        AiSearchResponseDto response = productService.searchWithAi(request, pageable);
+        return ResponseEntity.ok(ApiResponse.success("AI search completed successfully", response));
+    }
+
+    @GetMapping("/smart-search")
+    public ResponseEntity<ApiResponse<AiSearchResponseDto>> smartSearchGet(
+            @RequestParam("q") String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Search query 'q' is required"));
+        }
+        AiSearchRequestDto request = new AiSearchRequestDto(query);
+        Pageable pageable = PageRequest.of(page, size);
+        AiSearchResponseDto response = productService.searchWithAi(request, pageable);
+        return ResponseEntity.ok(ApiResponse.success("AI search completed successfully", response));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getAllProducts() {

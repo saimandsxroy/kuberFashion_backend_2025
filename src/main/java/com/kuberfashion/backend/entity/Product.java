@@ -84,6 +84,19 @@ public class Product {
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity = 0;
 
+    public enum InventoryTrackingMode {
+        LEGACY,
+        VARIANT
+    }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "inventory_tracking_mode", nullable = false)
+    private InventoryTrackingMode inventoryTrackingMode = InventoryTrackingMode.LEGACY;
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<ProductVariant> variants = new java.util.ArrayList<>();
+
     @Column(name = "is_active", nullable = true, columnDefinition = "boolean default true")
     private Boolean active = true;
 
@@ -262,6 +275,35 @@ public class Product {
 
     public void setStockQuantity(Integer stockQuantity) {
         this.stockQuantity = stockQuantity;
+        if (stockQuantity != null && stockQuantity <= 0) {
+            this.inStock = false;
+        }
+    }
+
+    public void deductStock(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Deduct quantity must be greater than zero");
+        }
+        int current = this.stockQuantity != null ? this.stockQuantity : 0;
+        if (!this.inStock || current < quantity) {
+            throw new com.kuberfashion.backend.exception.InsufficientStockException(
+                    "Insufficient stock for product '" + this.name + "'. Available: " + current + ", requested: " + quantity);
+        }
+        this.stockQuantity = current - quantity;
+        if (this.stockQuantity == 0) {
+            this.inStock = false;
+        }
+    }
+
+    public void restoreStock(int quantity) {
+        if (quantity <= 0) {
+            return;
+        }
+        int current = this.stockQuantity != null ? this.stockQuantity : 0;
+        this.stockQuantity = current + quantity;
+        if (this.stockQuantity > 0) {
+            this.inStock = true;
+        }
     }
 
     public boolean isActive() {
@@ -310,6 +352,26 @@ public class Product {
 
     public void setWishlistItems(Set<WishlistItem> wishlistItems) {
         this.wishlistItems = wishlistItems;
+    }
+
+    public InventoryTrackingMode getInventoryTrackingMode() {
+        return inventoryTrackingMode;
+    }
+
+    public void setInventoryTrackingMode(InventoryTrackingMode inventoryTrackingMode) {
+        this.inventoryTrackingMode = inventoryTrackingMode != null ? inventoryTrackingMode : InventoryTrackingMode.LEGACY;
+    }
+
+    public boolean isVariantTracking() {
+        return this.inventoryTrackingMode == InventoryTrackingMode.VARIANT;
+    }
+
+    public List<ProductVariant> getVariants() {
+        return variants;
+    }
+
+    public void setVariants(List<ProductVariant> variants) {
+        this.variants = variants != null ? variants : new java.util.ArrayList<>();
     }
 
     // Helper methods

@@ -10,7 +10,9 @@ import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_orders_user_idempotency", columnNames = {"user_id", "idempotency_key"})
+})
 public class Order {
 
     @Id
@@ -25,6 +27,9 @@ public class Order {
 
     @Column(name = "order_number", unique = true, nullable = false, length = 50)
     private String orderNumber;
+
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -186,6 +191,14 @@ public class Order {
 
     public void setOrderNumber(String orderNumber) {
         this.orderNumber = orderNumber;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 
     public OrderStatus getStatus() {

@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +21,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
        Optional<Order> findByOrderNumber(String orderNumber);
 
+       @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems oi LEFT JOIN FETCH oi.product LEFT JOIN FETCH oi.variant WHERE o.idempotencyKey = :idempotencyKey AND o.user.id = :userId")
+       Optional<Order> findByIdempotencyKeyAndUserId(@Param("idempotencyKey") String idempotencyKey, @Param("userId") Long userId);
+
+       @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems oi LEFT JOIN FETCH oi.product LEFT JOIN FETCH oi.variant WHERE o.id = :orderId")
+       Optional<Order> findByIdWithOrderItemsAndProduct(@Param("orderId") Long orderId);
+
        @Query("SELECT o FROM Order o WHERE o.user.id = :userId ORDER BY o.createdAt DESC")
        List<Order> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
 
@@ -26,6 +35,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
        @Query("SELECT o FROM Order o WHERE o.id = :orderId AND o.user.id = :userId")
        Optional<Order> findByIdAndUserId(@Param("orderId") Long orderId, @Param("userId") Long userId);
+
+       @Lock(LockModeType.PESSIMISTIC_WRITE)
+       @Query("SELECT o FROM Order o WHERE o.id = :orderId AND o.user.id = :userId")
+       Optional<Order> findByIdAndUserIdWithPessimisticLock(@Param("orderId") Long orderId, @Param("userId") Long userId);
 
        Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
@@ -36,6 +49,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
        @Query("SELECT o FROM Order o WHERE o.status = :status ORDER BY o.createdAt DESC")
        List<Order> findByStatus(@Param("status") Order.OrderStatus status);
+
+       @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems oi LEFT JOIN FETCH oi.product LEFT JOIN FETCH oi.variant WHERE o.paymentMethod = :paymentMethod AND o.status = :status AND o.paymentStatus = :paymentStatus AND o.createdAt < :cutoff ORDER BY o.createdAt ASC")
+       List<Order> findPendingOrdersForReconciliation(
+               @Param("paymentMethod") Order.PaymentMethod paymentMethod,
+               @Param("status") Order.OrderStatus status,
+               @Param("paymentStatus") Order.PaymentStatus paymentStatus,
+               @Param("cutoff") LocalDateTime cutoff);
 
        @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.paymentStatus = 'PAID'")
        BigDecimal getTotalRevenue();

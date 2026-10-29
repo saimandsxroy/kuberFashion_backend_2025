@@ -80,4 +80,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
        Page<Order> findAllByFilters(@Param("status") Order.OrderStatus status,
                      @Param("email") String email,
                      Pageable pageable);
+
+       @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems oi LEFT JOIN FETCH oi.product " +
+              "WHERE o.user.id = :userId " +
+              "AND o.status NOT IN (com.kuberfashion.backend.entity.Order.OrderStatus.CANCELLED, com.kuberfashion.backend.entity.Order.OrderStatus.RETURNED) " +
+              "AND o.paymentStatus != com.kuberfashion.backend.entity.Order.PaymentStatus.FAILED " +
+              "ORDER BY o.createdAt DESC")
+       List<Order> findEligibleOrdersByUserId(@Param("userId") Long userId, Pageable pageable);
 }

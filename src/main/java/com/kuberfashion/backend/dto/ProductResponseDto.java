@@ -31,6 +31,7 @@ public class ProductResponseDto {
     private String inventoryTrackingMode;
     private List<ProductVariantDto> variants;
     private LocalDateTime createdAt;
+    private Double similarityScore;
 
     // Constructors
     public ProductResponseDto() {
@@ -89,6 +90,8 @@ public class ProductResponseDto {
             this.stockQuantity = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
         }
         this.createdAt = product.getCreatedAt();
+        // Copy transient similarity score if populated by vector/recommendation service
+        this.similarityScore = product.getSimilarityScore();
     }
 
     // Getters and Setters
@@ -266,5 +269,13 @@ public class ProductResponseDto {
 
     public void setVariants(List<ProductVariantDto> variants) {
         this.variants = variants;
+    }
+
+    public Double getSimilarityScore() {
+        return similarityScore;
+    }
+
+    public void setSimilarityScore(Double similarityScore) {
+        this.similarityScore = similarityScore;
     }
 }

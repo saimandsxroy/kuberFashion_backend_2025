@@ -33,7 +33,7 @@ public class ProductController {
     public ResponseEntity<ApiResponse<AiSearchResponseDto>> smartSearch(
             @Valid @RequestBody AiSearchRequestDto request,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
+            @RequestParam(defaultValue = "48") int size) {
         Pageable pageable = PageRequest.of(page, size);
         AiSearchResponseDto response = productService.searchWithAi(request, pageable);
         return ResponseEntity.ok(ApiResponse.success("AI search completed successfully", response));
@@ -43,7 +43,7 @@ public class ProductController {
     public ResponseEntity<ApiResponse<AiSearchResponseDto>> smartSearchGet(
             @RequestParam("q") String query,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
+            @RequestParam(defaultValue = "48") int size) {
         if (query == null || query.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Search query 'q' is required"));
         }

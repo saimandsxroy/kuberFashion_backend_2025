@@ -103,6 +103,13 @@ public class Product {
     @Column(name = "is_offer", nullable = true, columnDefinition = "boolean default false")
     private Boolean isOffer = false;
 
+    @Column(name = "embedding_model", length = 100)
+    private String embeddingModel;
+
+    /** Transient field — populated by recommendation/vector search services, never persisted. */
+    @Transient
+    private Double similarityScore;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -381,5 +388,21 @@ public class Product {
 
     public Long getCategoryId() {
         return category != null ? category.getId() : null;
+    }
+
+    public String getEmbeddingModel() {
+        return embeddingModel;
+    }
+
+    public void setEmbeddingModel(String embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    public Double getSimilarityScore() {
+        return similarityScore;
+    }
+
+    public void setSimilarityScore(Double similarityScore) {
+        this.similarityScore = similarityScore;
     }
 }

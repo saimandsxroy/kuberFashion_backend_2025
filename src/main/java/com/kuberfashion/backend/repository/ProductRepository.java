@@ -115,4 +115,30 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
        @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE p.id IN :productIds AND LOWER(p.category.slug) = LOWER(:categorySlug)")
        boolean existsByProductIdsAndCategorySlug(@Param("productIds") List<Long> productIds, @Param("categorySlug") String categorySlug);
+
+       /**
+        * Batch-load active products by their IDs, used by RecommendationService to hydrate candidates.
+        */
+       @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category WHERE p.id IN :ids AND p.active = true")
+       List<Product> findActiveByIds(@Param("ids") List<Long> ids);
+
+       /**
+        * Fallback catalog candidates: top-rated active products excluding a given ID set.
+        * Used when no personalized signals exist (guests, empty history).
+        */
+       @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category " +
+              "WHERE p.active = true " +
+              "AND (p.id NOT IN :excludeIds) " +
+              "ORDER BY p.rating DESC, p.reviews DESC")
+       List<Product> findFallbackCandidates(@Param("excludeIds") List<Long> excludeIds, Pageable pageable);
+
+       /**
+        * Relational fallback for similar products when no embedding is available:
+        * products in the same category sorted by rating, excluding a given product.
+        */
+       @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category c " +
+              "WHERE p.active = true AND c.id = :categoryId AND p.id != :excludeId " +
+              "ORDER BY p.rating DESC, p.reviews DESC")
+       List<Product> findByCategoryIdExcluding(@Param("categoryId") Long categoryId,
+                     @Param("excludeId") Long excludeId, Pageable pageable);
 }

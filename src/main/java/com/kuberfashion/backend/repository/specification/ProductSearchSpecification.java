@@ -20,9 +20,15 @@ import java.util.Locale;
 public class ProductSearchSpecification implements Specification<Product> {
 
     private final AiSearchIntentDto intent;
+    private final java.util.Set<Long> vectorCandidateIds;
 
     public ProductSearchSpecification(AiSearchIntentDto intent) {
+        this(intent, java.util.Collections.emptySet());
+    }
+
+    public ProductSearchSpecification(AiSearchIntentDto intent, java.util.Set<Long> vectorCandidateIds) {
         this.intent = intent != null ? intent : new AiSearchIntentDto();
+        this.vectorCandidateIds = vectorCandidateIds != null ? vectorCandidateIds : java.util.Collections.emptySet();
     }
 
     @Override
@@ -37,26 +43,49 @@ public class ProductSearchSpecification implements Specification<Product> {
                 cb.isTrue(root.get("active"))
         ));
 
-        // 2. Keyword Search (Name or Description)
-        if (intent.getKeywords() != null && !intent.getKeywords().trim().isEmpty()) {
-            String cleanKeywords = intent.getKeywords().trim().toLowerCase(Locale.ROOT);
-            String[] tokens = cleanKeywords.split("\\s+");
+        // 2. Hybrid Semantic Vector or Keyword Search (Name or Description)
+        boolean hasVectorCandidates = !vectorCandidateIds.isEmpty();
+        boolean hasKeywords = intent.getKeywords() != null && !intent.getKeywords().trim().isEmpty();
 
-            List<Predicate> keywordPredicates = new ArrayList<>();
-            // Match the full phrase or individual key tokens
-            String escapedKeywords = escapeLike(cleanKeywords);
-            keywordPredicates.add(cb.like(cb.lower(root.get("name")), "%" + escapedKeywords + "%", '\\'));
-            keywordPredicates.add(cb.like(cb.lower(root.get("description")), "%" + escapedKeywords + "%", '\\'));
+        if (hasKeywords || hasVectorCandidates) {
+            List<Predicate> matchPredicates = new ArrayList<>();
 
-            for (String token : tokens) {
-                if (token.length() > 2) {
-                    String escapedToken = escapeLike(token);
-                    keywordPredicates.add(cb.like(cb.lower(root.get("name")), "%" + escapedToken + "%", '\\'));
-                    keywordPredicates.add(cb.like(cb.lower(root.get("description")), "%" + escapedToken + "%", '\\'));
-                }
+            if (hasVectorCandidates) {
+                matchPredicates.add(root.get("id").in(vectorCandidateIds));
             }
 
-            predicates.add(cb.or(keywordPredicates.toArray(new Predicate[0])));
+            if (hasKeywords) {
+                String cleanKeywords = intent.getKeywords().trim().toLowerCase(Locale.ROOT);
+                String[] tokens = cleanKeywords.split("\\s+");
+
+                List<Predicate> keywordPredicates = new ArrayList<>();
+                // Match the full phrase or individual key tokens
+                String escapedKeywords = escapeLike(cleanKeywords);
+                keywordPredicates.add(cb.like(cb.lower(root.get("name")), "%" + escapedKeywords + "%", '\\'));
+
+                for (String token : tokens) {
+                    if (token.length() >= 2) {
+                        String escapedToken = escapeLike(token);
+                        keywordPredicates.add(cb.like(cb.lower(root.get("name")), "%" + escapedToken + "%", '\\'));
+
+                        // For short words (e.g. "bra", "tee", "top"), match on word boundaries in description
+                        // to prevent false positives like matching "bra" in "abrasions" or "brass"
+                        if (token.length() <= 4) {
+                            Expression<String> paddedDesc = cb.concat(" ", cb.concat(cb.lower(cb.coalesce(root.get("description"), "")), " "));
+                            keywordPredicates.add(cb.like(paddedDesc, "% " + escapedToken + " %"));
+                            keywordPredicates.add(cb.like(paddedDesc, "% " + escapedToken + ",%"));
+                            keywordPredicates.add(cb.like(paddedDesc, "% " + escapedToken + ".%"));
+                            keywordPredicates.add(cb.like(paddedDesc, "% " + escapedToken + "s %"));
+                        } else {
+                            keywordPredicates.add(cb.like(cb.lower(root.get("description")), "%" + escapedToken + "%", '\\'));
+                        }
+                    }
+                }
+
+                matchPredicates.add(cb.or(keywordPredicates.toArray(new Predicate[0])));
+            }
+
+            predicates.add(cb.or(matchPredicates.toArray(new Predicate[0])));
         }
 
         // 3. Category Filter

@@ -16,8 +16,7 @@ services:
       DATABASE_USERNAME: ${DATABASE_USERNAME:-kuberfashion_user}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-KuberFashion@2025!}
       DATABASE_DRIVER: org.postgresql.Driver
-      HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
-      HIBERNATE_DDL_AUTO: update
+      HIBERNATE_DDL_AUTO: ${HIBERNATE_DDL_AUTO:-validate}
       
       # Spring Profile
       SPRING_PROFILES_ACTIVE: prod
@@ -51,6 +50,11 @@ services:
       CLOUDFLARE_R2_ACCOUNT_ID: ${CLOUDFLARE_R2_ACCOUNT_ID}
       CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
       CLOUDFLARE_R2_PUBLIC_URL: ${CLOUDFLARE_R2_PUBLIC_URL}
+
+      # AI & Vector Search Configuration
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
     volumes:
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs
@@ -62,17 +66,17 @@ services:
       redis:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 90s
 
   # ===============================
-  # PostgreSQL Database
+  # PostgreSQL Database (with pgvector)
   # ===============================
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg16
     container_name: kuberfashion-postgres
     restart: unless-stopped
     environment:

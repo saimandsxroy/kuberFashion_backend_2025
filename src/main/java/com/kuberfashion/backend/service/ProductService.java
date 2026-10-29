@@ -22,8 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,6 +36,9 @@ public class ProductService {
 
     @Autowired
     private AiSearchIntentService aiSearchIntentService;
+
+    @Autowired(required = false)
+    private ProductVectorService productVectorService;
 
     @Cacheable(value = "products_list", key = "'all'")
     public List<ProductResponseDto> getAllProducts() {
@@ -180,7 +182,17 @@ public class ProductService {
         }
 
         product.setSlug(uniqueSlug);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+
+        if (productVectorService != null) {
+            try {
+                productVectorService.updateProductEmbeddingSafely(saved.getId());
+            } catch (Exception e) {
+                logger.warn("Non-fatal embedding update error for new product {}: {}", saved.getId(), e.getMessage());
+            }
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -200,7 +212,17 @@ public class ProductService {
 
             product.setSlug(uniqueSlug);
         }
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+
+        if (productVectorService != null) {
+            try {
+                productVectorService.updateProductEmbeddingSafely(saved.getId());
+            } catch (Exception e) {
+                logger.warn("Non-fatal embedding update error for product {}: {}", saved.getId(), e.getMessage());
+            }
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -220,7 +242,13 @@ public class ProductService {
         // 1. Parse natural-language intent via Gemini (with automatic heuristic fallback)
         AiSearchIntentDto intent = aiSearchIntentService.parseSearchIntent(rawQuery);
 
-        // 2. Apply customer manual filter overrides if chips were edited or cleared in UI
+        // 2. Query candidate products using pgvector cosine distance if semantic search is active
+        Map<Long, Double> vectorCandidates = Collections.emptyMap();
+        if (productVectorService != null && productVectorService.isVectorSearchActive() && !rawQuery.isEmpty()) {
+            vectorCandidates = productVectorService.findVectorCandidates(rawQuery, null, 100);
+        }
+
+        // 3. Apply customer manual filter overrides if chips were edited or cleared in UI
         if (request != null) {
             if (request.getKeywords() != null) {
                 String kw = request.getKeywords().trim();
@@ -249,14 +277,33 @@ public class ProductService {
             }
         }
 
-        // 3. Construct safe, parameterized, inventory-aware JPA criteria specification
-        ProductSearchSpecification spec = new ProductSearchSpecification(intent);
+        // 4. Construct safe, parameterized, inventory-aware JPA criteria specification with hybrid vector support
+        ProductSearchSpecification spec = new ProductSearchSpecification(intent, vectorCandidates.keySet());
 
-        // 4. Query PostgreSQL database
+        // 5. Query PostgreSQL database
         Page<Product> productPage = productRepository.findAll(spec, pageable);
 
-        // 5. Convert to ProductResponseDto Page
-        Page<ProductResponseDto> dtoPage = productPage.map(ProductResponseDto::new);
+        // 6. Convert to ProductResponseDto Page and attach similarityScore if present
+        final Map<Long, Double> finalVectorCandidates = vectorCandidates;
+        Page<ProductResponseDto> dtoPage = productPage.map(product -> {
+            ProductResponseDto dto = new ProductResponseDto(product);
+            if (finalVectorCandidates.containsKey(product.getId())) {
+                dto.setSimilarityScore(finalVectorCandidates.get(product.getId()));
+            }
+            return dto;
+        });
+
+        // 7. If relevance sort (unsorted in Pageable) and we have vector similarities, rank highest semantic matches first
+        if (pageable.getSort().isUnsorted() && !finalVectorCandidates.isEmpty()) {
+            List<ProductResponseDto> sortedList = new ArrayList<>(dtoPage.getContent());
+            sortedList.sort((a, b) -> {
+                Double sA = a.getSimilarityScore() != null ? a.getSimilarityScore() : 0.0;
+                Double sB = b.getSimilarityScore() != null ? b.getSimilarityScore() : 0.0;
+                return Double.compare(sB, sA);
+            });
+            dtoPage = new org.springframework.data.domain.PageImpl<>(
+                    sortedList, pageable, dtoPage.getTotalElements());
+        }
 
         return new AiSearchResponseDto(intent, dtoPage);
     }

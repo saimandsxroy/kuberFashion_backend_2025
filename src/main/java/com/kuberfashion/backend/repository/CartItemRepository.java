@@ -14,6 +14,9 @@ import java.util.Optional;
 public interface CartItemRepository extends JpaRepository<CartItem, Long> {
     
     List<CartItem> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    @Query("SELECT c FROM CartItem c JOIN FETCH c.product WHERE c.user.id = :userId ORDER BY c.createdAt DESC")
+    List<CartItem> findByUserIdWithProduct(@Param("userId") Long userId);
     
     Optional<CartItem> findByIdAndUserId(Long id, Long userId);
     

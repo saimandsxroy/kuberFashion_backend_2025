@@ -83,7 +83,13 @@ public class AiSearchIntentService {
     }
 
     public boolean isGeminiAvailable() {
-        return !apiKey.isBlank();
+        if (apiKey == null || apiKey.isBlank()) {
+            return false;
+        }
+        String lower = apiKey.toLowerCase(Locale.ROOT).trim();
+        return !lower.startsWith("your_")
+                && !lower.contains("placeholder")
+                && !lower.equals("none");
     }
 
     /**
@@ -103,8 +109,8 @@ public class AiSearchIntentService {
         String sanitizedQuery = sanitizeQuery(rawQuery);
 
         if (!isGeminiAvailable()) {
-            logger.info("Gemini API key not configured; using heuristic query parser for '{}'", sanitizedQuery);
-            return parseFallback(sanitizedQuery, "Gemini API key not configured");
+            logger.info("Gemini API key not configured or is placeholder; using heuristic query parser for '{}'", sanitizedQuery);
+            return parseFallback(sanitizedQuery, null);
         }
 
         try {
@@ -115,13 +121,13 @@ public class AiSearchIntentService {
                 return parseFallback(sanitizedQuery, "AI service rate-limited");
             }
             logger.error("Client error calling Gemini API: {}", e.getMessage());
-            return parseFallback(sanitizedQuery, "AI service error: " + e.getMessage());
+            return parseFallback(sanitizedQuery, "AI service temporarily unavailable");
         } catch (ResourceAccessException e) {
             logger.warn("Gemini connection timed out. Falling back to heuristic query parser.");
             return parseFallback(sanitizedQuery, "AI service timeout");
         } catch (Exception e) {
             logger.error("Error calling Gemini API for search query: {}", e.getMessage());
-            return parseFallback(sanitizedQuery, "AI service error: " + e.getMessage());
+            return parseFallback(sanitizedQuery, "AI service temporarily unavailable");
         }
     }
 

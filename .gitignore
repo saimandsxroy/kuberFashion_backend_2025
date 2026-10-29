@@ -33,3 +33,16 @@ build/
 .vscode/
 
 .DS_Store
+
+# Environment & Secrets
+.env
+.env.local
+.env.production
+.env.staging
+.env.vps
+.env.*
+!.env.example
+
+# Runtime logs and PIDs
+*.log
+*.pid

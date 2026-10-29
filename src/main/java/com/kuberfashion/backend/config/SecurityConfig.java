@@ -54,9 +54,11 @@ public class SecurityConfig {
     private JwtAuthenticationEntryPoint unauthorizedHandler;
 
     @Autowired
+    @org.springframework.context.annotation.Lazy
     private UserService userService;
 
     @Autowired
+    @org.springframework.context.annotation.Lazy
     private DbUserRoleEnricherFilter dbUserRoleEnricherFilter;
 
     @Autowired
@@ -64,6 +66,9 @@ public class SecurityConfig {
 
     @Value("${supabase.jwks.uri:https://example.supabase.co/auth/v1/keys}")
     private String jwksUri;
+
+    @Value("${cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,https://kuberfashions.in,https://www.kuberfashions.in,https://laxmi.kuberfashions.in,https://laxmi-api.kuberfashions.in}")
+    private String allowedOrigins;
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
@@ -142,16 +147,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Explicit origins — wildcard is removed because it's incompatible with allowCredentials
-        configuration.setAllowedOrigins(List.of(
-                "https://laxmi.kuberfashions.in",
-                "https://laxmi-api.kuberfashions.in",
-                "https://kuberfashions.in",
-                "https://www.kuberfashions.in",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://localhost:5174",
-                "http://127.0.0.1:5174"));
+        // Dynamic origins from cors.allowed-origins property / CORS_ALLOWED_ORIGINS env var
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

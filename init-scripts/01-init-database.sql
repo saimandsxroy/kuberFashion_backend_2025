@@ -4,12 +4,13 @@
 -- Create database (already created by Docker, but ensuring it exists)
 -- CREATE DATABASE kuberfashion;
 
--- Connect to the database
-\c kuberfashion;
+-- Connect to the database (use current connection)
+-- \c kuberfashion;
 
 -- Create extensions if needed
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (

@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class PostgreSqlFlywayHibernateValidationIntegrationTest {
 
     @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", () -> System.getenv().getOrDefault("DATABASE_URL", "jdbc:postgresql://localhost:5432/kf_empty_test?sslmode=disable"));
         registry.add("spring.datasource.username", () -> System.getenv().getOrDefault("DATABASE_USERNAME", "kuberfashion_user"));
         registry.add("spring.datasource.password", () -> System.getenv().getOrDefault("DATABASE_PASSWORD", ""));

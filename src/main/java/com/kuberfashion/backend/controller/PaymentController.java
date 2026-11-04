@@ -38,11 +38,6 @@ import org.slf4j.LoggerFactory;
  */
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin(origins = {
-        "http://localhost:5173", "http://127.0.0.1:5173",
-        "https://kuberfashions.in", "https://www.kuberfashions.in",
-        "https://laxmi.kuberfashions.in"
-})
 public class PaymentController {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);

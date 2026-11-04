@@ -1,53 +1,59 @@
-# ====================
-# Stage 1: Build Stage
-# ====================
-FROM maven:3.9-eclipse-temurin-21 AS builder
+# ==============================================================================
+# Stage 1: Build Stage (Eclipse Temurin 21 JDK on Alpine)
+# ==============================================================================
+FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /app
 
-# Copy pom.xml first for dependency caching
-COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
+# Install build dependencies
+RUN apk add --no-cache bash curl
 
-# Download dependencies (cached if pom.xml unchanged)
-RUN mvn dependency:go-offline -B
+# Copy maven wrapper and pom.xml first for efficient layer caching
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN chmod +x ./mvnw
 
-# Copy source code
-COPY src ./src
+# Pre-fetch project dependencies
+RUN ./mvnw dependency:go-offline -B || true
 
-# Build the application (skip tests for faster builds)
-RUN mvn clean package -DskipTests -B
+# Copy source code and build production jar
+COPY src/ ./src/
+RUN ./mvnw clean package -DskipTests -B
 
-# ====================
-# Stage 2: Runtime Stage
-# ====================
+# ==============================================================================
+# Stage 2: Production Runtime Stage (Eclipse Temurin 21 JRE on Alpine)
+# ==============================================================================
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Add non-root user for security
+# Security: Create non-root dedicated application service account
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy the built JAR from builder stage
-COPY --from=builder /app/target/*.jar app.jar
-
-# Create directories for uploads and logs
+# Create writable upload and log volumes with non-root ownership
 RUN mkdir -p /app/uploads /app/logs && \
     chown -R appuser:appgroup /app
 
-# Switch to non-root user
+# Copy built artifact from builder stage
+COPY --from=builder --chown=appuser:appgroup /app/target/*.jar app.jar
+
+# Drop privileges to non-root user
 USER appuser
 
-# Expose the application port
+# Expose HTTP service port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
+# Configure production-tuned JVM container flags & virtual threads
+ENV JAVA_OPTS="-XX:+UseContainerSupport \
+               -XX:MaxRAMPercentage=75.0 \
+               -XX:+ExitOnOutOfMemoryError \
+               -Djdk.virtualThreadSupport=true \
+               -Djava.security.egd=file:/dev/./urandom"
 
-# JVM options for container environment
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+# Healthcheck monitoring Spring Boot Actuator / API Health
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || \
+        wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
 
-# Run the application
+# Launch application
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

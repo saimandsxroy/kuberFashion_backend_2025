@@ -13,8 +13,7 @@ import java.util.Map;
  * Controller for administrative monitoring and backfilling of product vector embeddings.
  */
 @RestController
-@RequestMapping("/api/admin/products/embeddings")
-@CrossOrigin(origins = { "http://localhost:5173", "http://127.0.0.1:5173", "https://kuberfashions.in", "https://www.kuberfashions.in" })
+@RequestMapping({"/api/admin/products/embeddings", "/api/admin/embeddings"})
 public class AdminProductEmbeddingController {
 
     private final ProductVectorService productVectorService;

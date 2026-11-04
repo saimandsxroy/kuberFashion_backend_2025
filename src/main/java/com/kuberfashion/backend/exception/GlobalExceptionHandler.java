@@ -17,7 +17,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.kuberfashion.backend.controller")
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);

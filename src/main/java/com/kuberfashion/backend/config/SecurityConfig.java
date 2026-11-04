@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -67,7 +68,7 @@ public class SecurityConfig {
     @Value("${supabase.jwks.uri:https://example.supabase.co/auth/v1/keys}")
     private String jwksUri;
 
-    @Value("${cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,https://kuberfashions.in,https://www.kuberfashions.in,https://laxmi.kuberfashions.in,https://laxmi-api.kuberfashions.in}")
+    @Value("${ALLOWED_ORIGINS:${cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,https://kuberfashion.saimandsroy.com,https://kuberfashion.saimands.com,https://kuberfashions.in,https://www.kuberfashions.in,https://staging.kuberfashions.in}}")
     private String allowedOrigins;
 
     @Bean
@@ -106,9 +107,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/auth/login").permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
+                        .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
                         .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(EndpointRequest.toAnyEndpoint()).permitAll()
+                        .requestMatchers("/actuator", "/actuator/**").permitAll()
 
                         // ── PhonePe server-to-server webhook ─────────────────
                         // This route MUST be public so PhonePe's servers can POST to it.
@@ -147,17 +150,20 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Dynamic origins from cors.allowed-origins property / CORS_ALLOWED_ORIGINS env var
+        // Dynamic origins from cors.allowed-origins property / ALLOWED_ORIGINS / CORS_ALLOWED_ORIGINS env var
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(java.util.stream.Collectors.toList());
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization", "Content-Type", "Accept", "X-Requested-With",
+                "X-Verify", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"
+        ));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Verify"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/cache")
-@CrossOrigin(origins = "http://localhost:5173")
 public class CacheController {
 
     @Autowired(required = false)

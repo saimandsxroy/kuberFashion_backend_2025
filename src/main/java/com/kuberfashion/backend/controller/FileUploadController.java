@@ -20,8 +20,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/files")
-@CrossOrigin(origins = { "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000",
-        "https://kuberfashions.in", "https://www.kuberfashions.in" })
 @ConditionalOnProperty(name = "cloudflare.r2.enabled", havingValue = "true", matchIfMissing = false)
 public class FileUploadController {
 

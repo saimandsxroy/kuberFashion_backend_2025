@@ -40,7 +40,9 @@ USER appuser
 EXPOSE 8080
 
 # Configure production-tuned JVM memory flags for 512 MB containers (Render / Koyeb)
-ENV JAVA_OPTS="-Xmx240m -Xms96m -XX:MaxMetaspaceSize=110m -XX:+UseSerialGC -Xss256k -Djdk.virtualThreadSupport=true -Djava.security.egd=file:/dev/./urandom"
+# -Xmx200m: caps heap at 200MB (leaves plenty of headroom for Metaspace and OS)
+# -XX:MaxMetaspaceSize=180m: guarantees Spring Boot 3 + Hibernate never hits Metaspace OOM
+ENV JAVA_OPTS="-Xmx200m -Xms64m -XX:MetaspaceSize=96m -XX:MaxMetaspaceSize=180m -XX:+UseSerialGC -Xss256k -Djdk.virtualThreadSupport=true -Djava.security.egd=file:/dev/./urandom"
 
 # Healthcheck monitoring Spring Boot Root / Health
 HEALTHCHECK --interval=20s --timeout=3s --start-period=30s --retries=3 \

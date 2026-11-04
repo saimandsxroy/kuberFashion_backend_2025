@@ -1,24 +1,20 @@
 # ==============================================================================
-# Stage 1: Build Stage (Eclipse Temurin 21 JDK on Alpine)
+# Stage 1: Build Stage (Official Maven 3.9 on Eclipse Temurin 21 Alpine)
+# Pre-packaged Maven prevents "429 Too Many Requests" on Render/CI builders
 # ==============================================================================
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache bash curl
-
-# Copy maven wrapper and pom.xml first for efficient layer caching
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x ./mvnw
+# Copy pom.xml first for efficient Docker layer caching
+COPY pom.xml ./
 
 # Pre-fetch project dependencies
-RUN ./mvnw dependency:go-offline -B || true
+RUN mvn dependency:go-offline -B || true
 
 # Copy source code and build production jar
 COPY src/ ./src/
-RUN ./mvnw clean package -DskipTests -B
+RUN mvn clean package -DskipTests -B
 
 # ==============================================================================
 # Stage 2: Production Runtime Stage (Eclipse Temurin 21 JRE on Alpine)

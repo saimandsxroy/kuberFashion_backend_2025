@@ -43,12 +43,8 @@ USER appuser
 # Expose HTTP service port
 EXPOSE 8080
 
-# Configure production-tuned JVM container flags & virtual threads
-ENV JAVA_OPTS="-XX:+UseContainerSupport \
-               -XX:MaxRAMPercentage=75.0 \
-               -XX:+ExitOnOutOfMemoryError \
-               -Djdk.virtualThreadSupport=true \
-               -Djava.security.egd=file:/dev/./urandom"
+# Configure production-tuned JVM memory flags for 512 MB containers (Render / Koyeb)
+ENV JAVA_OPTS="-Xmx260m -Xms128m -XX:MaxMetaspaceSize=110m -XX:+UseSerialGC -Xss256k -Djdk.virtualThreadSupport=true -Djava.security.egd=file:/dev/./urandom"
 
 # Healthcheck monitoring Spring Boot Actuator / API Health
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \

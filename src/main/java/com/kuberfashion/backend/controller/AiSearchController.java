@@ -48,3 +48,4 @@ public class AiSearchController {
         return ResponseEntity.ok(ApiResponse.success("AI search completed successfully", response));
     }
 }
+

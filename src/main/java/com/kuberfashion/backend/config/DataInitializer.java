@@ -142,7 +142,21 @@ public class DataInitializer implements CommandLineRunner {
 
     private void initializeAdminUser() {
         try {
-            // Check if admin exists with the new email OR phone already in use
+            // If primary admin already exists, verify and return
+            if (userRepository.existsByEmail("admin@kuberfashion.in")) {
+                logger.info("✅ Admin user admin@kuberfashion.in already exists");
+                // Clean up any legacy admin@kuberfashion.com to prevent conflicts
+                Optional<User> legacyAdmin = userRepository.findByEmail("admin@kuberfashion.com");
+                legacyAdmin.ifPresent(user -> {
+                    try {
+                        userRepository.delete(user);
+                        logger.info("🧹 Cleaned up legacy admin@kuberfashion.com");
+                    } catch (Exception ignored) {}
+                });
+                return;
+            }
+
+            // If legacy admin exists and primary does not, migrate it
             Optional<User> oldAdmin = userRepository.findByEmail("admin@kuberfashion.com");
             if (oldAdmin.isPresent()) {
                 User admin = oldAdmin.get();
@@ -150,30 +164,28 @@ public class DataInitializer implements CommandLineRunner {
                 admin.setPassword(passwordEncoder.encode("kuberfashion2025@"));
                 userRepository.save(admin);
                 logger.info("✅ Admin user migrated to admin@kuberfashion.in / kuberfashion2025@");
-            } else if (!userRepository.existsByEmail("admin@kuberfashion.in") && !userRepository.existsByPhone("1234567890")) {
+                return;
+            }
+
+            // Create fresh admin user if none exists
+            if (!userRepository.existsByPhone("9999999999")) {
                 User admin = new User();
                 admin.setFirstName("Admin");
-                admin.setLastName("KuberFashion");
+                admin.setLastName("User");
                 admin.setEmail("admin@kuberfashion.in");
-                admin.setPhone("1234567890");
+                admin.setPhone("9999999999");
                 admin.setPassword(passwordEncoder.encode("kuberfashion2025@"));
                 admin.setRole(User.Role.ADMIN);
                 admin.setEnabled(true);
 
                 userRepository.save(admin);
-                logger.info("✅ Admin user created successfully!");
-                logger.info("   📧 Email: admin@kuberfashion.in");
-                logger.info("   🔑 Password: kuberfashion2025@");
+                logger.info("✅ Admin user created successfully: admin@kuberfashion.in");
             } else {
                 logger.info("✅ Admin user already exists");
             }
-
-            // Also print confirmation for console
-            System.out.println("ℹ️ Admin user already exists.");
         } catch (Exception e) {
-            logger.error("❌ CRITICAL: Failed to create admin user: {}", e.getMessage());
-            throw new RuntimeException("Admin user creation failed - this is critical for application functionality",
-                    e);
+            logger.warn("⚠️ Admin user initialization notice: {}", e.getMessage());
+            // Do not fail startup in production
         }
     }
 

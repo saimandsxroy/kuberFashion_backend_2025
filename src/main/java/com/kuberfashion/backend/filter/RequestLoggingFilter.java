@@ -24,6 +24,13 @@ public class RequestLoggingFilter implements Filter {
         
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        // Skip verbose logging for automated cloud health probes
+        String uri = httpRequest.getRequestURI();
+        if ("/".equals(uri) || "/healthz".equals(uri) || "/actuator/health".equals(uri) || "/api/health".equals(uri)) {
+            chain.doFilter(request, response);
+            return;
+        }
         
         long startTime = System.currentTimeMillis();
         

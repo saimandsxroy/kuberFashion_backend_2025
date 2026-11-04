@@ -49,6 +49,9 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
+    @Value("${spring.cache.type:simple}")
+    private String cacheType;
+
     @Value("${SKIP_DATA_INITIALIZATION:false}")
     private boolean skipDataInitialization;
 
@@ -64,14 +67,14 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         try {
-            // CRITICAL: Clear cache on startup to prevent deserialization errors
-            try {
-                if (redisTemplate != null) {
+            // Clear Redis cache on startup only when Redis caching is explicitly enabled
+            if ("redis".equalsIgnoreCase(cacheType) && redisTemplate != null) {
+                try {
                     redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
                     logger.info("🧹 Redis cache cleared on startup");
+                } catch (Exception e) {
+                    logger.warn("⚠️ Failed to clear Redis cache on startup: {}", e.getMessage());
                 }
-            } catch (Exception e) {
-                logger.warn("⚠️ Failed to clear Redis cache on startup: {}", e.getMessage());
             }
 
             // CRITICAL: Create admin user FIRST before anything else

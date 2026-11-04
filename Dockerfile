@@ -40,12 +40,12 @@ USER appuser
 EXPOSE 8080
 
 # Configure production-tuned JVM memory flags for 512 MB containers (Render / Koyeb)
-ENV JAVA_OPTS="-Xmx260m -Xms128m -XX:MaxMetaspaceSize=110m -XX:+UseSerialGC -Xss256k -Djdk.virtualThreadSupport=true -Djava.security.egd=file:/dev/./urandom"
+ENV JAVA_OPTS="-Xmx240m -Xms96m -XX:MaxMetaspaceSize=110m -XX:+UseSerialGC -Xss256k -Djdk.virtualThreadSupport=true -Djava.security.egd=file:/dev/./urandom"
 
-# Healthcheck monitoring Spring Boot Actuator / API Health
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || \
-        wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
+# Healthcheck monitoring Spring Boot Root / Health
+HEALTHCHECK --interval=20s --timeout=3s --start-period=30s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/ || \
+        wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1
 
 # Launch application
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

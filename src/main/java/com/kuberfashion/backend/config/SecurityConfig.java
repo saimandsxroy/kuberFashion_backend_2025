@@ -102,6 +102,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         // ── Public endpoints ─────────────────────────────────
+                        .requestMatchers("/", "/healthz", "/api/health").permitAll()
+                        .requestMatchers(EndpointRequest.toAnyEndpoint()).permitAll()
+                        .requestMatchers("/actuator", "/actuator/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/admin/auth/login").permitAll()
@@ -109,9 +112,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/products/**").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
-                        .requestMatchers("/api/health").permitAll()
-                        .requestMatchers(EndpointRequest.toAnyEndpoint()).permitAll()
-                        .requestMatchers("/actuator", "/actuator/**").permitAll()
 
                         // ── PhonePe server-to-server webhook ─────────────────
                         // This route MUST be public so PhonePe's servers can POST to it.
